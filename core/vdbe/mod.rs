@@ -991,7 +991,9 @@ impl Program {
                                         *current_max = value;
                                     }
                                 }
-                                _ => {
+                                (a,b) => {
+                                    dbg!("a", &a);
+                                    dbg!("b", &b);
                                     eprintln!("Unexpected types in max aggregation");
                                 }
                             }
@@ -1034,7 +1036,9 @@ impl Program {
                                         *current_min = value;
                                     }
                                 }
-                                _ => {
+                                (a, b) => {
+                                    dbg!("acc",&a);
+                                    dbg!("b", &b);
                                     eprintln!("Unexpected types in min aggregation");
                                 }
                             }

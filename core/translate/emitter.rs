@@ -231,6 +231,7 @@ impl Emitter for Operator {
                         Ok(OpStepResult::Continue)
                     }
                     SEEKROWID_SEEK_AND_CONDITIONS => {
+                        dbg!("SEEKROWID_SEEK_AND_CONDITIONS");
                         let cursor_id = program.resolve_cursor_id(table_identifier, None);
                         let rowid_reg = program.alloc_register();
                         translate_expr(
@@ -718,6 +719,7 @@ impl Emitter for Operator {
                 Ok(start_reg)
             }
             Operator::Projection { expressions, .. } => {
+                dbg!("projection");
                 let expr_count = expressions
                     .iter()
                     .map(|e| e.column_count(referenced_tables))

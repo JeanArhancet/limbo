@@ -73,6 +73,7 @@ pub fn translate_condition_expr(
             );
         }
         ast::Expr::Binary(lhs, op, rhs) => {
+            dbg!("hello binary");
             let lhs_reg = program.alloc_register();
             let rhs_reg = program.alloc_register();
             let _ = translate_expr(program, Some(referenced_tables), lhs, lhs_reg, cursor_hint);
@@ -627,13 +628,37 @@ pub fn translate_expr(
             filter_over: _,
             order_by: _,
         } => {
+
             let args_count = if let Some(args) = args { args.len() } else { 0 };
             let func_type: Option<Func> =
                 Func::resolve_function(normalize_ident(name.0.as_str()).as_str(), args_count).ok();
-
+            dbg!("func_type", &func_type);
             match func_type {
-                Some(Func::Agg(_)) => {
-                    crate::bail_parse_error!("aggregation function in non-aggregation context")
+                Some(Func::Agg(f)) => {
+                    if args.is_none() {
+                        crate::bail_parse_error!("{} function with no arguments", f.to_string());
+                    } else {
+                        let agg = Aggregate {
+                            func: f.clone(),
+                            args: args.clone().unwrap(),
+                        };
+                        let regs = program.alloc_register();
+                        translate_aggregation(
+                            program,
+                            referenced_tables.unwrap(),
+                            &agg,
+                            regs,
+                            cursor_hint,
+                        )?;
+                        program.emit_insn(Insn::AggStep {
+                            acc_reg: regs,
+                            col: target_register,
+                            delimiter: 0,
+                            func: f,
+                        });
+                        Ok(target_register)
+
+                    }
                 }
 
                 Some(Func::Json(j)) => match j {
@@ -823,6 +848,7 @@ pub fn translate_expr(
                         | ScalarFunc::Length
                         | ScalarFunc::Unicode
                         | ScalarFunc::Quote => {
+                            dbg!("length");
                             let args = if let Some(args) = args {
                                 if args.len() != 1 {
                                     crate::bail_parse_error!(
@@ -1069,6 +1095,7 @@ pub fn translate_expr(
                         }
                     }
                 }
+
                 None => {
                     crate::bail_parse_error!("unknown function {}", name.0);
                 }
@@ -1344,6 +1371,7 @@ pub fn translate_aggregation(
     target_register: usize,
     cursor_hint: Option<usize>,
 ) -> Result<usize> {
+    dbg!("aggregation", &agg.func);
     let dest = match agg.func {
         AggFunc::Avg => {
             if agg.args.len() != 1 {
@@ -1447,8 +1475,12 @@ pub fn translate_aggregation(
             if agg.args.len() != 1 {
                 crate::bail_parse_error!("max bad number of arguments");
             }
+            dbg!("max function");
             let expr = &agg.args[0];
+            dbg!("max function 2 ", &expr);
             let expr_reg = program.alloc_register();
+            dbg!("max function 3");
+
             let _ = translate_expr(
                 program,
                 Some(referenced_tables),
@@ -1456,12 +1488,14 @@ pub fn translate_aggregation(
                 expr_reg,
                 cursor_hint,
             );
+            dbg!("max function 4 ");
             program.emit_insn(Insn::AggStep {
                 acc_reg: target_register,
                 col: expr_reg,
                 delimiter: 0,
                 func: AggFunc::Max,
             });
+            dbg!("max function 5 ");
             target_register
         }
         AggFunc::Min => {
